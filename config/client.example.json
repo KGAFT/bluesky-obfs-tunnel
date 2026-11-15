@@ -1,0 +1,44 @@
+{
+  "server_address": "127.0.0.1:443",
+  "local_proxy_bind": "127.0.0.1:8080",
+  "client_identity": "test-client",
+  "client_password": "HelloPasswordForHandshake",
+  "proxy_setup_timeout_secs": 30,
+  "proxy_setup_queue_depth": 256,
+  "queues": {
+    "endpoint_event_queue_depth": 256,
+    "max_pending_frames": 64,
+    "sink_queue_depth": 256
+  },
+  "obfuscation": {
+    "target_sni": "https://www.microsoft.com/",
+    "target_sni_connection_dest": "www.microsoft.com:443",
+    "setup_proxy_port": 7756,
+    "browser_emulation": "chrome_149",
+    "public_password": "TestPassword123!",
+    "server_id": "test-server",
+    "message_padding_min": 12,
+    "message_padding_max": 50,
+    "max_adjusted_padding_derivation_percent": 0.8,
+    "long_delay_min_secs": 2,
+    "long_delay_max_secs": 8,
+    "handshake_timeout_secs": 30,
+    "delays": [
+      { "ArraySort": { "len": 32, "repeats": 2 } },
+      { "SpinLoop": { "micros": 150 } },
+      { "ArraySort": { "len": 22, "repeats": 2 } }
+    ]
+  },
+  "patterns": {
+    "client_pattern_path": "cli_pattern.bin",
+    "server_pattern_path": "serv_pattern.bin",
+    "capture_dest": "www.microsoft.com:443",
+    "capture_url": "https://www.microsoft.com/"
+  },
+  "reconnect": {
+    "enabled": true,
+    "session_min_secs": 1800,
+    "session_max_secs": 2400,
+    "retry_delay_secs": 5
+  }
+}

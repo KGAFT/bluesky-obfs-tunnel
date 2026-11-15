@@ -1,0 +1,39 @@
+[package]
+name = "bluesky-obfs-tunnel"
+version = "0.1.0"
+edition = "2024"
+default-run = "bluesky-obfs-tunnel"
+
+[[bin]]
+name = "bluesky-obfs-tunnel"
+path = "src/bin/server/main.rs"
+required-features = ["server"]
+
+[features]
+default = ["server"]
+server = ["dep:diesel", "dep:diesel_migrations"]
+
+[dependencies]
+bluesky-obfs = { version = "0.1", features = ["debug-logging"] }
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+rkyv = "0.8.18"
+httparse = "1.10"
+http = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rand = "0.9"
+wreq-util = { version = "=3.0.0-rc.14", features = ["emulation-serde"] }
+diesel = { version = "~2.3", optional = true, default-features = false, features = ["mysql", "r2d2"] }
+diesel_migrations = { version = "~2.3", optional = true, default-features = false, features = ["mysql"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["test-util"] }
+
+
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

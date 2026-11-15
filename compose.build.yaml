@@ -1,0 +1,4 @@
+# Local source builds only. The VPS bundle uses compose.yaml without this file.
+services:
+  server:
+    build: .

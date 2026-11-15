@@ -1,0 +1,2 @@
+[print_schema]
+file = "src/server/auth/schema.rs"

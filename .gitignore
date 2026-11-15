@@ -1,0 +1,33 @@
+# Build and release artifacts
+/target/
+/dist/
+.idea
+Cargo.lock
+# Local runtime configuration and captured patterns
+/client.json
+/server.json
+/config/server.json
+/config/client.json
+/config/*.bin
+
+# Local environment files (keep example templates)
+/.env
+/.env.*
+!/.env.example
+
+# IDE settings and editor files
+/.idea/
+/.vscode/
+*.swp
+*.swo
+*~
+
+# Python caches and local logs
+__pycache__/
+*.pyc
+*.log
+
+# OS metadata
+.DS_Store
+Thumbs.db
+*.bin

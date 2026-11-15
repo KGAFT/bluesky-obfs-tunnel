@@ -1,0 +1,50 @@
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: tunnel
+      MARIADB_USER: tunnel
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:?Set MARIADB_PASSWORD in .env}
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  server:
+    image: bluesky-obfs-tunnel-server:local
+    # Load/build this image explicitly; VPS deployments never compile or pull it.
+    pull_policy: never
+    # Keep the mounted config selected when `compose run` supplies CLI arguments.
+    entrypoint: ["bluesky-obfs-tunnel", "--config", "/app/server.json"]
+    # Match the host config directory's owner so captured patterns are writable.
+    user: "${TUNNEL_UID:-1000}:${TUNNEL_GID:-1000}"
+    working_dir: /app/config
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://tunnel:${MARIADB_PASSWORD:?Set MARIADB_PASSWORD in .env}@db:3306/tunnel
+    ports:
+      - "${TUNNEL_PORT:-443}:443"
+    volumes:
+      - type: bind
+        source: ${SERVER_CONFIG:-./config/server.example.json}
+        target: /app/server.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./config
+        target: /app/config
+        bind:
+          create_host_path: false
+
+volumes:
+  mariadb_data:

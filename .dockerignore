@@ -1,0 +1,12 @@
+*
+!Cargo.toml
+!Cargo.lock
+!build.rs
+!src/
+!src/**
+!migrations/
+!migrations/**
+!config/
+!config/server.example.json
+!cli_pattern.bin
+!serv_pattern.bin

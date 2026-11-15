@@ -1,0 +1,5 @@
+# Optional: expose MariaDB on loopback for a native server or integration tests.
+services:
+  db:
+    ports:
+      - "127.0.0.1:${MARIADB_LOCAL_PORT:-3306}:3306"

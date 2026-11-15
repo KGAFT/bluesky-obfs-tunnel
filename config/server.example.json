@@ -1,0 +1,48 @@
+{
+  "bind_address": "0.0.0.0:443",
+  "forwarding": { "mode": "multiplexed" },
+  "database": {
+    "url_env": "DATABASE_URL",
+    "pool_size": 8,
+    "connection_timeout_secs": 5
+  },
+  "allow_local_proxy_connections": true,
+  "local_proxy_allowlist": [],
+  "public_ips": [],
+  "queues": {
+    "endpoint_event_queue_depth": 256,
+    "max_pending_frames": 64,
+    "sink_queue_depth": 256
+  },
+  "obfuscation": {
+    "target_sni": "https://www.microsoft.com/",
+    "target_sni_connection_dest": "www.microsoft.com:443",
+    "setup_proxy_port": 7756,
+    "browser_emulation": "chrome_149",
+    "public_password": "TestPassword123!",
+    "server_id": "test-server",
+    "message_padding_min": 12,
+    "message_padding_max": 50,
+    "max_adjusted_padding_derivation_percent": 0.8,
+    "long_delay_min_secs": 2,
+    "long_delay_max_secs": 8,
+    "handshake_timeout_secs": 30,
+    "delays": [
+      { "ArraySort": { "len": 32, "repeats": 2 } },
+      { "SpinLoop": { "micros": 150 } },
+      { "ArraySort": { "len": 22, "repeats": 2 } }
+    ]
+  },
+  "rate_limiter": {
+    "bandwidth_max_derivation_percent": 0.8,
+    "packet_count_max_derivation_percent": 0.8,
+    "out_of_pattern_packets_max_ratio_percent": 0.8
+  },
+  "replay_guard_window_ms": 60000,
+  "patterns": {
+    "client_pattern_path": "cli_pattern.bin",
+    "server_pattern_path": "serv_pattern.bin",
+    "capture_dest": "www.microsoft.com:443",
+    "capture_url": "https://www.microsoft.com/"
+  }
+}
