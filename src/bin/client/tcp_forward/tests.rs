@@ -1,5 +1,4 @@
 use super::*;
-use crate::options::Options;
 use bluesky_obfs_tunnel::{
     StreamLimits,
     server::{client_session::ClientSession, connect_policy::ConnectPolicy, fwd_server::ForwardTo},
@@ -58,79 +57,6 @@ impl Drop for Forwarder {
         for task in &self.tasks {
             task.abort();
         }
-    }
-}
-
-#[test]
-fn listen_requires_tcp_and_rejects_conflicting_modes() {
-    let options = Options::parse(
-        [
-            "--listen",
-            "127.0.0.1:1080",
-            "--tcp",
-            "localhost:2080",
-            "--server",
-            "tunnel:9443",
-        ]
-        .map(String::from),
-    )
-    .unwrap()
-    .unwrap();
-    assert_eq!(
-        options.listen.unwrap(),
-        "127.0.0.1:1080".parse::<SocketAddr>().unwrap()
-    );
-    assert!(!options.is_proxy());
-    let mut settings = bluesky_obfs_tunnel::config::ClientSettings::default();
-    options.apply(&mut settings).unwrap();
-    assert_eq!(settings.server_address, "tunnel:9443");
-    for args in [
-        vec!["--listen"],
-        vec!["--listen", "localhost:1080", "--tcp", "localhost:2080"],
-        vec!["--listen", "127.0.0.1:1080"],
-        vec!["--listen", "127.0.0.1:1080", "--udp", "localhost:2080"],
-        vec![
-            "--listen",
-            "127.0.0.1:1080",
-            "--tcp",
-            "localhost:2080",
-            "--message",
-            "x",
-        ],
-        vec![
-            "--listen",
-            "127.0.0.1:1080",
-            "--tcp",
-            "localhost:2080",
-            "--file",
-            "x",
-        ],
-        vec![
-            "--listen",
-            "127.0.0.1:1080",
-            "--tcp",
-            "localhost:2080",
-            "--proxy",
-        ],
-        vec![
-            "--listen",
-            "127.0.0.1:1080",
-            "--http-proxy",
-            "127.0.0.1:8080",
-        ],
-        vec![
-            "--listen",
-            "127.0.0.1:1080",
-            "--listen",
-            "127.0.0.1:1081",
-            "--tcp",
-            "localhost:2080",
-        ],
-    ] {
-        assert!(
-            Options::parse(args.iter().map(|s| s.to_string())).is_err(),
-            "{args:?}"
-        );
     }
 }
 

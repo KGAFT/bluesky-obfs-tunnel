@@ -81,7 +81,7 @@ local HTTP/HTTPS proxy against a multiplexed tunnel server:
 Or expose a TCP service reachable from the server:
 
 ```sh
-./client --config client.json --listen 127.0.0.1:1080 --tcp 127.0.0.1:2080
+./client --config client.json --tcp 127.0.0.1:2080:127.0.0.1:1080
 ```
 
 The `--tcp` destination is resolved from the server's network, so its loopback

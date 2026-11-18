@@ -100,7 +100,8 @@ For an ARM64 Android executable to run inside Termux, see the
 [aarch64 Termux build and run instructions](docs/termux.md). The build script
 packages the client, pattern files, and example settings into a transfer archive.
 
-The `client` binary can send a test payload or listen as a local HTTP proxy.
+The `client` binary can send a test payload, forward local TCP/UDP traffic, or
+listen as a local HTTP proxy.
 Test requests write the response bytes to stdout.
 Run it from the project directory so it can load `cli_pattern.bin` and
 `serv_pattern.bin`. It uses the credentials, cover site, public password, and
@@ -114,23 +115,42 @@ start the server and client in separate terminals:
 
 ```sh
 ./bluesky-obfs-tunnel --bind 0.0.0.0:443 --multiplexed
-./client --server 127.0.0.1:443 --listen 127.0.0.1:1080 --tcp 127.0.0.1:2080
+./client --server 127.0.0.1:443 --tcp 127.0.0.1:8090:127.0.0.1:1080
 ```
 
 After `cargo build --bins`, invoke `./target/debug/bluesky-obfs-tunnel` and
 `./target/debug/client` from the project root so patterns resolve correctly, or
 use `cargo run --bin NAME -- OPTIONS` there. The client listens on
-port 1080; each accepted connection opens a separate TCP stream to port 2080 on
+port 1080; each accepted connection opens a separate TCP stream to port 8090 on
 the **server's** loopback interface. Choose any available local listening port
-with `--listen IP:PORT`. Traffic is relayed unchanged, so this also exposes a
-remote SOCKS or HTTP proxy locally. For a SOCKS proxy on server port 2080, test
-with `curl --noproxy '' --proxy socks5h://127.0.0.1:1080 https://example.com/`.
+using `--tcp DEST_HOST:DEST_PORT:LOCAL_IP:LOCAL_PORT`. Traffic is relayed unchanged,
+so this also exposes a remote SOCKS or HTTP proxy locally. For a SOCKS proxy on
+server port 8090, test with
+`curl --noproxy '' --proxy socks5h://127.0.0.1:1080 https://example.com/`.
 
 The listener supports concurrent connections and TCP half-closes. It stays bound
 while reconnecting or rotating sessions; existing connections close on rotation.
 `--timeout` limits setup and destination opening, not established streams.
-`--listen` requires `--tcp` and cannot be combined with proxy or payload options.
-Without `--listen`, `--tcp` retains its one-shot payload behavior.
+The combined address replaces the separate `--listen` option and cannot be
+combined with proxy or payload options. Without the local address, `--tcp HOST:PORT`
+retains its one-shot payload behavior. Use brackets for IPv6 addresses, for example
+`--tcp '[::1]:8090:[::1]:1080'`; destination hostnames are resolved by the server.
+
+For continuous UDP forwarding, use the same destination-first syntax:
+
+```sh
+./client --server 127.0.0.1:443 --udp 127.0.0.1:5353:127.0.0.1:1053
+```
+
+Send local UDP datagrams to port 1053 to reach port 5353 on the server. Each local
+sender gets its own UDP association, reused across datagrams, with replies sent
+back only to that sender. Empty datagrams and packet boundaries are preserved.
+Datagrams larger than 8192 bytes are dropped, and idle associations expire after
+60 seconds. Sender count is bounded by `proxy_setup_queue_depth`, and each sender's
+queue by `queues.max_pending_frames`; packets exceeding these limits are dropped.
+The listener stays bound across reconnections and session rotation; associations
+are recreated when new datagrams arrive. UDP packets may be lost during reconnects.
+Without a local address, `--udp HOST:PORT` still sends a single test datagram.
 
 The server's listener and fixed destination can also be chosen on the CLI:
 `./bluesky-obfs-tunnel --bind 0.0.0.0:9443 --tcp 127.0.0.1:2080`.

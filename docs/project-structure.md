@@ -43,7 +43,10 @@ src/
         ├── config.rs            Configured client patterns and codec construction
         ├── app.rs               One-shot request and listener startup
         ├── tcp_forward.rs       Local TCP listener and bidirectional relay
-        ├── tcp_forward/tests.rs TCP listener CLI and relay tests
+        ├── tcp_forward/tests.rs TCP listener relay tests
+        ├── udp_forward.rs       Local UDP listener and per-sender associations
+        ├── udp_forward/tests/   UDP forwarding and session rotation tests
+        ├── options/tests.rs     Forwarding address parsing and mode validation
         ├── transfer.rs          Raw and multiplexed payload transfer
         ├── tests.rs             CLI validation and payload transfer tests
         └── http_proxy/

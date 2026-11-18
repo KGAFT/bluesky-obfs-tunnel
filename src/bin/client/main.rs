@@ -5,6 +5,7 @@ mod http_proxy;
 mod options;
 mod tcp_forward;
 mod transfer;
+mod udp_forward;
 
 use app::{run, run_proxy};
 use options::{HELP, Options};
@@ -26,8 +27,10 @@ async fn main() -> ExitCode {
             return run_proxy(settings).await;
         }
         if let Some(bind) = options.listen {
-            let (_, destination) = options.destination.expect("validated --listen destination");
-            return app::run_tcp_forward(settings, bind, destination).await;
+            let (protocol, destination) = options
+                .destination
+                .expect("validated forwarding destination");
+            return app::run_forward(settings, protocol, bind, destination).await;
         }
         tokio::time::timeout(settings.proxy_setup_timeout(), run(options, settings))
             .await

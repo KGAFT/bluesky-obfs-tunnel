@@ -29,16 +29,21 @@ Overrides are not saved back to the file. `--proxy` uses `local_proxy_bind`.
 `--help` prints usage without creating or loading a configuration file.
 
 For a persistent local TCP forward, use
-`client --server HOST:443 --listen 127.0.0.1:1080 --tcp 127.0.0.1:2080`
-against a server started with `--multiplexed`. `--listen` is a CLI-only address;
-the destination supplied to `--tcp` is reached from the server. The client
-relays bytes unchanged, with no HTTP parsing or SOCKS negotiation of its own.
-It accepts concurrent connections and preserves TCP half-closes. `--listen`
-requires `--tcp` and rejects `--udp`, proxy, and payload options.
+`client --server HOST:443 --tcp 127.0.0.1:8090:127.0.0.1:1080`
+against a server started with `--multiplexed`. The syntax is
+`DEST_HOST:DEST_PORT:LOCAL_IP:LOCAL_PORT`; addresses are CLI-only and the
+destination is reached from the server. Use brackets around IPv6 hosts.
+The client relays bytes unchanged, accepts concurrent connections, and preserves
+TCP half-closes. For continuous UDP forwarding, use
+`--udp 127.0.0.1:5353:127.0.0.1:1053`. Each local UDP sender gets an independent
+association that expires after 60 idle seconds. UDP datagrams are limited to 8192
+bytes; oversized local packets are dropped. Both listener modes reject proxy and
+payload options. The shorter `--tcp HOST:PORT` and `--udp HOST:PORT` forms send
+one-shot test payloads. The former separate `--listen` option has been replaced.
 
 ## Client session lifetime
 
-The client's `reconnect` section controls long-running proxy and TCP listener sessions:
+The client's `reconnect` section controls long-running proxy, TCP, and UDP listener sessions:
 
 ```json
 {
@@ -65,6 +70,9 @@ setup timeouts, and dropped tunnels retry after `retry_delay_secs`, including
 when scheduled rotation is disabled. Ctrl-C cancels the listener, its connections,
 the active tunnel, and any pending reconnect attempt.
 
+UDP sender associations also close at rotation. Subsequent local datagrams create
+fresh associations on the new tunnel; datagrams in flight may be lost.
+
 One-shot `--tcp`, `--udp`, and fixed TCP payload requests retain their request
 timeout and return their result once. They do not retry or resend application
 data. Library users can opt into the same lifecycle with
@@ -88,7 +96,7 @@ data. Library users can opt into the same lifecycle with
 | Client `local_proxy_bind` | Local HTTP/HTTPS proxy listener address |
 | Client `client_identity`, `client_password` | Credentials created in MariaDB with the server's `--create-client` command |
 | Client `proxy_setup_timeout_secs` | Tunnel setup, request headers, destination open, and one-shot request timeout |
-| Client `proxy_setup_queue_depth` | Maximum concurrent accepted proxy connections |
+| Client `proxy_setup_queue_depth` | Maximum concurrent accepted proxy/TCP connections or UDP sender associations |
 
 Server forwarding values are `{"mode":"multiplexed"}`, `{"mode":"http_proxy"}`,
 `{"mode":"tcp","destination":"127.0.0.1:2080"}`, or

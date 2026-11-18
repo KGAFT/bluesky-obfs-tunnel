@@ -13,9 +13,8 @@ With no destination option, use the server's default fixed TCP forwarding mode.
 Options:
   --config PATH          Load/create JSON settings (default: client.json)
   --server HOST:PORT     Override the configured tunnel server
-  --tcp HOST:PORT        Open a multiplexed TCP destination
-  --listen IP:PORT       Forward local TCP connections to --tcp HOST:PORT
-  --udp HOST:PORT        Open a multiplexed UDP destination; receive one datagram
+  --tcp DEST[:LOCAL]     TCP destination HOST:PORT, optionally followed by :IP:PORT
+  --udp DEST[:LOCAL]     UDP destination HOST:PORT, optionally followed by :IP:PORT
   --http-proxy ADDR      Listen as an HTTP/HTTPS CONNECT proxy (e.g. 127.0.0.1:8080)
   --proxy                Listen on the configured local_proxy_bind address
   --message TEXT         Payload (default: hello from client followed by newline)
@@ -24,10 +23,13 @@ Options:
   --setup-port PORT      Override the local handshake proxy port
   -h, --help             Show this help
 
-TCP sends a write half-close and reads until EOF. UDP sends exactly one datagram.
-Proxy and --listen modes run until Ctrl-C; sessions rotate per reconnect settings.
-Example: client --listen 127.0.0.1:1080 --tcp 127.0.0.1:2080
-The TCP destination is reached from the tunnel server.
+Without a local address, TCP sends a write half-close and reads until EOF;
+UDP sends exactly one datagram. With a local address, forward continuously.
+Proxy and forwarding listeners run until Ctrl-C and reconnect automatically.
+Examples: client --tcp 127.0.0.1:8090:127.0.0.1:1080
+          client --udp 127.0.0.1:5353:127.0.0.1:1053
+Destinations are reached from the tunnel server. Use brackets around IPv6 hosts.
+UDP preserves datagrams up to 8192 bytes; idle sender mappings expire after 60s.
 Use the same cli_pattern.bin and serv_pattern.bin as the example server.
 Credentials, cover site, queues, and session lifetimes are loaded from JSON.
 ";
@@ -81,7 +83,6 @@ impl Options {
                 "--server"
                     | "--config"
                     | "--tcp"
-                    | "--listen"
                     | "--udp"
                     | "--http-proxy"
                     | "--message"
@@ -100,14 +101,6 @@ impl Options {
             match arg.as_str() {
                 "--config" => options.config = value,
                 "--server" => options.server = Some(value),
-                "--listen" => {
-                    let address = value
-                        .parse::<SocketAddr>()
-                        .map_err(|_| invalid("--listen must be IP:PORT"))?;
-                    if options.listen.replace(address).is_some() {
-                        return Err(invalid("choose one --listen address"));
-                    }
-                }
                 "--tcp" | "--udp" => {
                     if options.destination.is_some() {
                         return Err(invalid("choose one --tcp or --udp destination"));
@@ -117,7 +110,9 @@ impl Options {
                     } else {
                         ForwardProtocol::Udp
                     };
-                    options.destination = Some((protocol, value));
+                    let (destination, listen) = forwarding_addresses(&arg, &value)?;
+                    options.destination = Some((protocol, destination));
+                    options.listen = listen;
                 }
                 "--message" => options.message = Some(value),
                 "--http-proxy" => {
@@ -159,13 +154,10 @@ impl Options {
             ));
         }
         if options.listen.is_some()
-            && (options.is_proxy()
-                || !matches!(options.destination, Some((ForwardProtocol::Tcp, _)))
-                || options.message.is_some()
-                || options.file.is_some())
+            && (options.is_proxy() || options.message.is_some() || options.file.is_some())
         {
             return Err(invalid(
-                "--listen requires --tcp and cannot be combined with proxy or payload options",
+                "continuous forwarding cannot be combined with proxy or payload options",
             ));
         }
         Ok(Some(options))
@@ -199,3 +191,47 @@ impl Options {
             .map_err(|problems| invalid(problems.join("; ")))
     }
 }
+
+/// Split after the destination port, ignoring colons inside bracketed IPv6 hosts.
+fn forwarding_addresses(flag: &str, value: &str) -> io::Result<(String, Option<SocketAddr>)> {
+    let invalid_address = || {
+        invalid(format!(
+            "{flag} must be HOST:PORT or HOST:PORT:IP:PORT (IPv6 hosts need brackets)"
+        ))
+    };
+    let host_end = if value.starts_with('[') {
+        value.find(']').map(|index| index + 1)
+    } else {
+        value.find(':')
+    }
+    .ok_or_else(invalid_address)?;
+    let port_and_local = value[host_end..]
+        .strip_prefix(':')
+        .ok_or_else(invalid_address)?;
+    let (port, local) = match port_and_local.split_once(':') {
+        Some((port, local)) => (port, Some(local)),
+        None => (port_and_local, None),
+    };
+    if !port.parse::<u16>().is_ok_and(|port| port != 0) {
+        return Err(invalid_address());
+    }
+    let destination = &value[..host_end + 1 + port.len()];
+    if value.starts_with('[') {
+        destination
+            .parse::<SocketAddr>()
+            .map_err(|_| invalid_address())?;
+    } else if host_end == 0
+        || value[..host_end]
+            .chars()
+            .any(|c| c.is_whitespace() || ":/[]@".contains(c))
+    {
+        return Err(invalid_address());
+    }
+    let listen = local
+        .map(|local| local.parse::<SocketAddr>().map_err(|_| invalid_address()))
+        .transpose()?;
+    Ok((destination.to_owned(), listen))
+}
+
+#[cfg(test)]
+mod tests;

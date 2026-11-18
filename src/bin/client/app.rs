@@ -5,6 +5,7 @@ use super::{
     options::Options,
     tcp_forward,
     transfer::{multiplexed, raw_tcp},
+    udp_forward,
 };
 use bluesky_obfs_tunnel::{
     client::{ForwardClient, ForwardProtocol, reconnect},
@@ -12,8 +13,8 @@ use bluesky_obfs_tunnel::{
     protocol::MAX_TUNNEL_CHUNK,
 };
 use bsobfs::codec::fake_codec::FakeCodec;
-use std::{io, net::SocketAddr};
-use tokio::net::{TcpListener, TcpStream};
+use std::{io, net::SocketAddr, sync::Arc};
+use tokio::net::{TcpListener, TcpStream, UdpSocket};
 use tokio_util::{bytes::Bytes, codec::Framed};
 
 pub(super) async fn run(options: Options, settings: ClientSettings) -> io::Result<()> {
@@ -76,7 +77,19 @@ pub(super) async fn run_proxy(settings: ClientSettings) -> io::Result<()> {
     }
 }
 
-pub(super) async fn run_tcp_forward(
+pub(super) async fn run_forward(
+    settings: ClientSettings,
+    protocol: ForwardProtocol,
+    bind: SocketAddr,
+    destination: String,
+) -> io::Result<()> {
+    match protocol {
+        ForwardProtocol::Tcp => run_tcp_forward(settings, bind, destination).await,
+        ForwardProtocol::Udp => run_udp_forward(settings, bind, destination).await,
+    }
+}
+
+async fn run_tcp_forward(
     settings: ClientSettings,
     bind: SocketAddr,
     destination: String,
@@ -97,6 +110,34 @@ pub(super) async fn run_tcp_forward(
             |client| tcp_forward::serve(
                 &listener, client, &destination, settings.proxy_setup_timeout(),
                 settings.proxy_setup_queue_depth as usize,
+            ),
+        ) => result,
+        signal = tokio::signal::ctrl_c() => signal,
+    }
+}
+
+async fn run_udp_forward(
+    settings: ClientSettings,
+    bind: SocketAddr,
+    destination: String,
+) -> io::Result<()> {
+    let socket = Arc::new(UdpSocket::bind(bind).await?);
+    let cfg = client_config(&settings).await?;
+    eprintln!(
+        "UDP forwarding listening on {} -> {} via {} (Ctrl-C to stop)",
+        socket.local_addr()?,
+        destination,
+        settings.server_address
+    );
+    tokio::select! {
+        result = reconnect::supervise(
+            &settings.reconnect,
+            settings.proxy_setup_timeout(),
+            || ForwardClient::connect(cfg.clone(), &settings.server_address, settings.limits()),
+            |client| udp_forward::serve(
+                &socket, client, &destination, settings.proxy_setup_timeout(),
+                settings.proxy_setup_queue_depth as usize,
+                settings.limits().max_pending_frames,
             ),
         ) => result,
         signal = tokio::signal::ctrl_c() => signal,

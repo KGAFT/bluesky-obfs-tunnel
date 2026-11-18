@@ -242,7 +242,7 @@ For deployments from before these fixes:
 - Remove the old server JSON `clients` array, add `database` from the current
   example, and create those identities once with `--create-client`. Existing
   database identities need no recreation.
-- Select `{"mode":"multiplexed"}` for the HTTP proxy and `--listen` client.
+- Select `{"mode":"multiplexed"}` for the HTTP proxy and continuous TCP/UDP client forwarding.
 - Check the actual file selected by `SERVER_CONFIG` or `--config`; existing JSON
   retains old settings, including copies under `target/release/`.
 - Set the host UID/GID for writable `config/`, and keep MariaDB private. The

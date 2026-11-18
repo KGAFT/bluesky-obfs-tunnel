@@ -19,7 +19,7 @@ pub struct ClientSettings {
     pub client_identity: String,
     pub client_password: String,
     pub proxy_setup_timeout_secs: u64,
-    /// Maximum concurrent accepted HTTP proxy connections.
+    /// Maximum concurrent proxy/TCP connections or UDP sender associations.
     pub proxy_setup_queue_depth: u32,
     pub queues: QueueConfig,
     pub obfuscation: ObfuscationConfig,
